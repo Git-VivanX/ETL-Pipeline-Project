@@ -1,0 +1,41 @@
+extract:
+  type: json
+  source: data/uploaded_input.json
+  retry_count: 3
+  retry_delay: 2
+transform:
+  drop_duplicates: true
+  dropna: true
+  enrich_rules:
+    - col: score_range
+      func: >-
+        lambda row: (row['score'] if 'score' in row and row['score'] is not None
+        else [])
+    - col: name_length
+      func: >-
+        lambda row: len(str(row['name'])) if 'name' in row and row['name'] else
+        0
+    - col: has_price
+      func: 'lambda row: 1 if ''price'' in row and row[''price''] is not None else 0'
+    - col: num_reviews
+      func: >-
+        lambda row: len(row['user_reviews']) if 'user_reviews' in row and
+        isinstance(row['user_reviews'], list) else 0
+  validations:
+    required_columns:
+      - id
+      - name
+      - score
+    types:
+      id: int
+      name: str
+      score: list
+load:
+  type: csv
+  destination: data/output.csv
+logging:
+  logfile: etl.log
+  level: INFO
+monitoring:
+  enabled: true
+  summary_file: etl_run_summary.txt

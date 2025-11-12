@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ETL Table Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>ETL Pipeline Table Viewer</h1>
+    <form id="etlForm">
+      <p>
+        <input type="file" id="uploadInput" name="inputFile" accept=".json,.csv" />
+      </p>
+      <button type="submit" id="runEtlBtn">Run ETL</button>
+    </form>
+    <div id="loading" style="display:none;">Processing, please wait...</div>
+    <div id="output"></div>
+  </div>
+  <script src="table.js"></script>
+</body>
+</html>
