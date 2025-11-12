@@ -3,21 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ETL Table Viewer</title>
+  <title>ETL Pipeline Dashboard</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
+  <nav class="navbar">
+    <div class="logo">ETL<span>Pipeline</span></div>
+  </nav>
+
+  <main class="container">
     <h1>ETL Pipeline Table Viewer</h1>
+    <p class="subtitle">Transform your data with precision and simplicity.</p>
+
     <form id="etlForm">
-      <p>
-        <input type="file" id="uploadInput" name="inputFile" accept=".json,.csv" />
-      </p>
+      <label class="upload-label" for="uploadInput">
+        <input type="file" id="uploadInput" name="inputFile" accept=".json,.csv" hidden />
+        <span class="upload-btn">Choose File</span>
+      </label>
       <button type="submit" id="runEtlBtn">Run ETL</button>
     </form>
-    <div id="loading" style="display:none;">Processing, please wait...</div>
+
+    <div id="loading">Processing, please wait...</div>
     <div id="output"></div>
-  </div>
+  </main>
+
+  <footer>©️ 2025 ETL Pipeline — Built with precision 🍏</footer>
   <script src="table.js"></script>
 </body>
 </html>
