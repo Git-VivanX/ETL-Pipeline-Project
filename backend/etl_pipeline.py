@@ -1,23 +1,17 @@
 import pandas as pd
-import requests
 import yaml
-import os
-import logging
 import json
+import os
 import time
 import re
 from io import StringIO
 from bs4 import BeautifulSoup
 from dateutil.parser import parse as dateparse
 from deepdiff import DeepDiff
-
-def setup_logging():
-    logging.basicConfig(filename="etl.log", level=logging.INFO,
-                        format="%(asctime)s [%(levelname)s] %(message)s")
+import numpy as np
 
 def primitive_only(val):
     # Converts pandas/NumPy types and non-serializable objects to Python types/strings
-    import numpy as np
     if isinstance(val, (str, int, float, bool)) or val is None:
         return val
     elif isinstance(val, (np.generic,)):
@@ -34,7 +28,9 @@ def flatten_value(val, parent_key="", sep="_"):
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             items.extend(flatten_value(v, new_key, sep=sep).items())
     elif isinstance(val, list):
-        items.append((parent_key, ",".join(map(str, [primitive_only(i) for i in val]))))
+        items.append(
+            (parent_key, ",".join(map(str, [primitive_only(i) for i in val])))
+        )
     else:
         items.append((parent_key, primitive_only(val)))
     return dict(items)
@@ -53,6 +49,19 @@ def extract_structured_blocks(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         text = f.read()
     results = []
+    # 1. Try strict JSON parse first
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            results.append(obj)
+        elif isinstance(obj, list):
+            for rec in obj:
+                if isinstance(rec, dict):
+                    results.append(rec)
+        print('[ETL DEBUG] Loaded as strict JSON')
+    except Exception:
+        pass
+    # 2. Regexp search for JSON blocks inside text
     json_blocks = re.findall(r'\{[\s\S]+?\}', text)
     for block in json_blocks:
         try:
@@ -67,6 +76,7 @@ def extract_structured_blocks(file_path):
                         results.append(entry)
         except:
             pass
+    # 3. List blocks (top-level arrays)
     list_blocks = re.findall(r'\[[\s\S]+?\]', text)
     for block in list_blocks:
         try:
@@ -78,6 +88,7 @@ def extract_structured_blocks(file_path):
                         results.append(entry)
         except:
             pass
+    # 4. CSV-like tables
     csv_blocks = re.findall(r'((?:[\w" ]+,)+[\w" ]+\n(?:[^\n]*\n?)+)', text)
     for block in csv_blocks:
         try:
@@ -87,6 +98,7 @@ def extract_structured_blocks(file_path):
                 results.append(d)
         except:
             pass
+    # 5. YAML blocks
     yaml_blocks = re.findall(r'(?:[a-zA-Z0-9_]+:\s[^\n]+\n(?:\s+- .+\n)*)+', text)
     for block in yaml_blocks:
         try:
@@ -96,6 +108,7 @@ def extract_structured_blocks(file_path):
                 results.append(yaml_data)
         except:
             pass
+    # 6. HTML tags/text
     soup = BeautifulSoup(text, 'html.parser')
     for tag in soup.find_all(True):
         tag_text = tag.get_text(strip=True)
@@ -104,22 +117,18 @@ def extract_structured_blocks(file_path):
             for attr, val in tag.attrs.items():
                 row[f"_html_attr_{attr}"] = str(val)
             results.append(row)
+    # 7. Code blocks
     raw_blocks = re.findall(r'(def .+?:\n(?:\s+.+\n)*|print\(.+\))', text)
     for code in raw_blocks:
         results.append({'_code_block': code.replace('\n', ' '), '_source_type': 'code'})
+    # 8. Log blocks
     log_blocks = re.findall(r'\[\d{4}-\d{2}-\d{2} .+?\] .+', text)
     for log in log_blocks:
         results.append({'_log_entry': log, '_source_type': 'log'})
-    collected = json_blocks + csv_blocks + raw_blocks + log_blocks + yaml_blocks
-    for rem in text.split('\n\n'):
-        if rem.strip() and not any(rem in c for c in collected):
-            results.append({'_raw_text': rem.strip(), '_source_type': 'raw'})
-    # --- Robust fallback so output is never empty ---
+    # 9. Raw fallback
     if not results:
-        print("[ETL DEBUG] No extractable blocks found, returning error row")
         results.append({'_error': 'No extractable block found', '_source_type': 'error'})
-    print(f"[ETL DEBUG] Total extracted blocks: {len(results)} | Breakdown:",
-           dict(pd.Series([r.get('_source_type') for r in results]).value_counts()))
+    print("[ETL DEBUG] Total extracted blocks:", len(results), "Type breakdown:", dict(pd.Series([r.get('_source_type') for r in results]).value_counts()))
     df = pd.json_normalize(results)
     return df
 
@@ -130,15 +139,9 @@ def extract(cfg):
     retry_delay = cfg.get('retry_delay', 1)
     attempt = 0
     if src.endswith('.txt') or src.endswith('.html') or src.endswith('.htm'):
-        try:
-            df = extract_structured_blocks(src)
-            if len(df) == 0:
-                raise ValueError('No valid data extracted from file')
-            print(f"[ETL DEBUG] Shape after extract: {df.shape}")
-            return df
-        except Exception as e:
-            print(f"[ETL DEBUG] TXT/HTML extract error: {e}")
-            return pd.DataFrame([{'_error': str(e), '_source_type': 'error'}])
+        df = extract_structured_blocks(src)
+        print(f"[ETL DEBUG] Shape after extract: {df.shape}")
+        return df
     while attempt < retries:
         try:
             if typ == "csv":
@@ -146,21 +149,15 @@ def extract(cfg):
             elif typ == "json":
                 with open(src, 'r', encoding='utf-8') as f:
                     obj = json.load(f)
-                    if isinstance(obj, list):
-                        df = pd.DataFrame(obj)
-                    elif isinstance(obj, dict):
-                        main_key = None
-                        for k, v in obj.items():
-                            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
-                                main_key = k
-                                break
-                        if main_key:
-                            df = pd.json_normalize(obj[main_key])
-                        else:
-                            df = pd.json_normalize(obj)
+                    # Handles dict or list
+                    if isinstance(obj, dict):
+                        df = pd.json_normalize(obj)
+                    elif isinstance(obj, list):
+                        df = pd.json_normalize(obj)
                     else:
-                        raise ValueError("Unsupported JSON structure")
+                        df = pd.DataFrame([{'_error': 'Unsupported JSON', '_source_type': 'error'}])
             elif typ == "api":
+                import requests
                 res = requests.get(src)
                 res.raise_for_status()
                 df = pd.json_normalize(res.json())
@@ -173,7 +170,7 @@ def extract(cfg):
             attempt += 1
             if attempt < retries:
                 time.sleep(retry_delay)
-    raise RuntimeError(f"Extraction failed after {retries} attempts.")
+    return pd.DataFrame([{'_error': 'Extraction failed', '_source_type': 'error'}])
 
 def normalize_value(val):
     if val is None or (isinstance(val, float) and pd.isna(val)):
@@ -242,9 +239,14 @@ def generate_schema(df):
         nullable = bool(col_data.isnull().any())
         examples = [primitive_only(x) for x in list(col_data.dropna().unique()[:3])]
         confidence = float(types[t] / len(col_data)) if types else 1.0
-        schema["fields"].append(
-            {"name": col, "path": f"$.{col}", "type": t, "nullable": nullable, "examples": examples, "confidence": confidence}
-        )
+        schema["fields"].append({
+            "name": col,
+            "path": f"$.{col}",
+            "type": t,
+            "nullable": nullable,
+            "examples": examples,
+            "confidence": confidence
+        })
     schema["primary_key_candidates"] = [
         col for col in df.columns
         if bool(getattr(df[col], "is_unique", False)) and not df[col].isnull().any()
@@ -266,22 +268,8 @@ def save_schema(source_id, schema):
     path = f"schemas/{source_id}_schema.json"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(schema, f, indent=2)
-    logging.info(f"Saved schema {schema['schema_id']} for source {source_id}")
-
-def diff_schemas(old_schema, new_schema):
-    return DeepDiff(old_schema, new_schema, ignore_order=True).to_dict()
-
-def load(df, cfg):
-    dest = cfg['destination']
-    print(f"[ETL DEBUG] Saving output to: {dest}")
-    out_dir = os.path.dirname(dest)
-    if out_dir and not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    df.to_csv(dest, index=False)
-    print(f"[ETL DEBUG] Saved {len(df)} records to {dest}")
 
 def run_etl_pipeline():
-    setup_logging()
     with open("config.yaml") as f:
         cfg = yaml.safe_load(f)
     source_id = cfg.get("source_id", "default_source")
@@ -294,10 +282,15 @@ def run_etl_pipeline():
     old_schema = load_schema(source_id)
     schema_diff = None
     if old_schema:
-        schema_diff = diff_schemas(old_schema, new_schema)
-        logging.info(f"Schema diff for {source_id}: {schema_diff}")
+        schema_diff = DeepDiff(old_schema, new_schema, ignore_order=True).to_dict()
+        print(f"[ETL DEBUG] Schema diff for {source_id}: {schema_diff}")
     save_schema(source_id, new_schema)
-    load(df, cfg["load"])  # data output
+    out_path = cfg['load']['destination']
+    out_dir = os.path.dirname(out_path)
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    df.to_csv(out_path, index=False)
+    print(f"[ETL DEBUG] Saved {len(df)} records to {out_path}")
     print(f"ETL complete. Schema version: {new_schema['schema_id']}")
     if schema_diff:
         print(f"Schema changes: {schema_diff}")

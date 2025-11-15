@@ -24,7 +24,11 @@ app.post('/run-etl', upload.single('inputFile'), async (req, res) => {
     if (req.file) {
       const ext = path.extname(req.file.originalname).toLowerCase();
       // Use 'csv' for .csv, otherwise use 'txt'
-      fileType = ext === '.csv' ? 'csv' : 'txt';
+      if (ext === '.csv') fileType = 'csv';
+else if (ext === '.json') fileType = 'json';
+else fileType = 'txt';
+
+
       uploadedPath = path.join(dataDir, 'uploaded_input' + ext);
       fs.renameSync(req.file.path, uploadedPath);
     }
