@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fd.append('inputFile', input.files[0]);
     }
 
-    fetch('http://127.0.0.1:5001/run-etl', {
+    fetch('http://localhost:5001/run-etl', {
       method: 'POST',
       body: fd,
     })
