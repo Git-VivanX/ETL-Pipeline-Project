@@ -170,17 +170,14 @@ def normalize_value(val):
     s = str(val).strip()
     s_lower = s.lower()
     
-    # Null or empty values
     if s_lower in ('na', 'n/a', 'null', 'none', '', 'nan'):
         return None
     
-    # Boolean values
     if s_lower in ('true', 'yes', '1'):
         return True
     if s_lower in ('false', 'no', '0'):
         return False
     
-    # Percentages - convert to float 0-1
     percent_match = re.match(r'^(\d+(\.\d+)?)%$', s)
     if percent_match:
         try:
@@ -189,16 +186,13 @@ def normalize_value(val):
             logging.debug(f"normalize_value: Could not convert percentage '{s}': {e}")
             return s
     
-    # Email normalization - lowercase and strip spaces
     if re.match(r'^[\w\.\+-]+@[\w\.-]+\.[a-zA-Z]{2,}$', s):
         return s_lower
     
-    # Phone numbers - simple normalization by removing non-digit chars
     if re.match(r'^\+?[\d\s\-\(\)]+$', s):
         digits = re.sub(r'[^\d]', '', s)
         return digits
     
-    # Currency removal and number parsing
     s_no_currency = s.replace(',', '').replace('$', '').replace('₹','').strip()
     try:
         return int(s_no_currency)
@@ -219,13 +213,11 @@ def normalize_data(df):
             if len(sample_values) == 0:
                 continue
             sample = sample_values[0]
-            # Guess if date col by regex
             if len(sample) > 8 and re.match(r'\d{4}-\d{2}-\d{2}', sample):
                 df[col] = df[col].map(normalize_value)
             elif df[col].dropna().map(lambda x: bool(re.match(r'^(\$|₹)?\d+(\.\d+)?%?$', str(x).replace(",", "")) or pd.api.types.is_numeric_dtype(x))).all():
                 df[col] = df[col].map(normalize_value)
             else:
-                # Trim and lowercase strings
                 df[col] = df[col].fillna('').map(lambda x: str(x).strip().lower() if pd.notna(x) else None)
         except Exception as e:
             logging.debug(f"normalize_data: Skipping column '{col}' due to error: {e}")
@@ -262,13 +254,11 @@ def generate_schema(df):
     for col in df.columns:
         col_data = df[col]
         non_null = col_data.dropna()
-        # Type inference by most common type among non-nulls
         type_counts = non_null.map(infer_type).value_counts().to_dict()
         type_counts.pop("null", None)
         t = max(type_counts, key=type_counts.get) if type_counts else "string"
         nullable = bool(col_data.isnull().any())
         examples = [primitive_only(x) for x in list(non_null.unique()[:3])]
-        # Improved confidence: most common value's proportion
         value_counts = non_null.value_counts()
         conf_val = float(value_counts.max() / len(non_null)) if len(non_null) else 1.0
         schema["fields"].append({
