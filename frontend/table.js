@@ -1,5 +1,3 @@
-// table.js
-
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('etlForm');
   const input = document.getElementById('uploadInput');
@@ -7,10 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const output = document.getElementById('output');
   const fileNameLabel = document.getElementById('fileName');
 
-  // New: Schema container
   const schemaContainer = document.getElementById('schemaContainer');
 
-  // Show filename when selected
   input.addEventListener('change', () => {
     fileNameLabel.textContent = input.files.length
       ? `📄 ${input.files[0].name}`
@@ -71,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
     output.innerHTML = html;
   }
 
-  // New: Pretty-print schema JSON below the table
   function renderSchema(schema) {
     if (!schemaContainer) return;
     if (!schema) {
