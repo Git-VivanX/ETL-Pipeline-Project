@@ -15,7 +15,7 @@ body {
   min-height: 100vh;
 }
 
-/* Navbar */
+
 .navbar {
   position: sticky;
   top: 0;
@@ -34,7 +34,7 @@ body {
   color: #0071e3;
 }
 
-/* Container */
+
 .container {
   background: rgba(255, 255, 255, 0.75);
   max-width: 950px;
@@ -64,7 +64,7 @@ h1 {
   font-size: 1rem;
 }
 
-/* Upload */
+
 .upload-btn {
   background: #0071e3;
   color: #fff;
@@ -81,7 +81,7 @@ h1 {
   transform: scale(1.05);
 }
 
-/* Button */
+
 #runEtlBtn {
   padding: 0.7rem 2rem;
   background: linear-gradient(90deg, #0071e3, #00a3e1);
@@ -100,7 +100,7 @@ h1 {
   transform: scale(1.05);
 }
 
-/* Loading */
+
 #loading {
   display: none;
   margin: 2rem 0;
@@ -115,7 +115,7 @@ h1 {
   100% { opacity: 0.4; }
 }
 
-/* Table */
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -142,7 +142,7 @@ tbody tr:hover {
   background: #e9f3ff;
 }
 
-/* Footer */
+
 footer {
   text-align: center;
   color: #888;
@@ -151,16 +151,14 @@ footer {
   margin-top: auto;
 }
 
-/* Existing styles unchanged above this line */
 
-/* Show file name */
 .file-name {
   margin-top: 10px;
   font-size: 0.9rem;
   color: #444;
 }
 
-/* Scrollable responsive table wrapper */
+
 #outputContainer {
   max-width: 100%;
   overflow-x: auto;
@@ -170,7 +168,7 @@ footer {
 }
 
 table {
-  min-width: 900px; /* Ensures width doesn't collapse */
+  min-width: 900px; 
   border-collapse: collapse;
   background: #fff;
   border-radius: 10px;
@@ -179,7 +177,7 @@ table {
   box-shadow: 0 5px 15px rgba(0,0,0,0.05);
 }
 
-/* Sticky header when scrolling */
+
 thead th {
   position: sticky;
   top: 0;
@@ -188,7 +186,6 @@ thead th {
   color: white;
 }
 
-/* Download button style */
 .download-btn {
   margin-top: 20px;
   background: #00a35c;
