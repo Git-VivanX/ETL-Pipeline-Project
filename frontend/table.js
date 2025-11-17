@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ❌ Error: ${data.error || 'No data returned.'}</div>`;
           renderSchema(null);
         }
-        
+
       })
       .catch((err) => {
         loading.style.display = 'none';
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         🚨 Network or server error. Ensure backend is running.</div>`;
         renderSchema(null);
       });
-      
+
   });
 
   function renderTable(rows) {
